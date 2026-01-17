@@ -1,3 +1,4 @@
+// WARNING: Example file used for refactoring-tool demos. Avoid manual edits.
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, FormData, ValidationErrors } from "./UserManagementDashboard.types";
 import { validateForm, getRoleBadgeColor, getStatusBadgeColor, formatDate } from "./UserManagementDashboard.utils";
