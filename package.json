@@ -1,0 +1,36 @@
+{
+  "name": "tsmorph",
+  "version": "1.0.0",
+  "description": "TSX refactoring demonstration - Extract code blocks >150 LOC",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "tsc --noEmit",
+    "refactor": "ts-node scripts/refactor-tsx.ts",
+    "refactor:pass2": "ts-node scripts/refactor-tsx-pass2.ts",
+    "fix-lint": "ts-node scripts/fix-lint.ts",
+    "analyze-types": "ts-node scripts/analyze-types.ts"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "next": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "ts-morph": "^21.0.0",
+    "ts-node": "^10.9.0",
+    "prettier": "^3.0.0",
+    "eslint-config-prettier": "^9.0.0"
+  }
+}
