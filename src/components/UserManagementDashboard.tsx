@@ -1,33 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { User, FormData, ValidationErrors } from "./UserManagementDashboard.types";
+import { validateForm, getRoleBadgeColor, getStatusBadgeColor, formatDate } from "./UserManagementDashboard.utils";
 
-/**
- * BEFORE REFACTORING: Large Monolithic Component (~200+ LOC)
- * This component handles user management with forms, tables, and API calls
- * all in one file - a common anti-pattern that needs refactoring
- */
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'user' | 'guest';
-  status: 'active' | 'inactive';
-  createdAt: string;
-}
-
-interface FormData {
-  name: string;
-  email: string;
-  role: 'admin' | 'user' | 'guest';
-}
-
-interface ValidationErrors {
-  name?: string;
-  email?: string;
-  role?: string;
-}
-
-export const UserManagementDashboard: React.FC = () => {
+export const UserManagementDashboard: React.FC = (): React.JSX.Element => {
   // State management
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,30 +23,6 @@ export const UserManagementDashboard: React.FC = () => {
   const [formErrors, setFormErrors] = useState<ValidationErrors>({});
 
   // Validation logic
-  const validateForm = (data: FormData): ValidationErrors => {
-    const errors: ValidationErrors = {};
-    
-    if (!data.name.trim()) {
-      errors.name = 'Name is required';
-    } else if (data.name.length < 2) {
-      errors.name = 'Name must be at least 2 characters';
-    } else if (data.name.length > 50) {
-      errors.name = 'Name must be less than 50 characters';
-    }
-    
-    if (!data.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-      errors.email = 'Invalid email format';
-    }
-    
-    if (!data.role) {
-      errors.role = 'Role is required';
-    }
-    
-    return errors;
-  };
-
   // API simulation functions
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -225,27 +176,6 @@ export const UserManagementDashboard: React.FC = () => {
   };
 
   // Render helpers
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'admin': return '#ff6b6b';
-      case 'user': return '#4ecdc4';
-      case 'guest': return '#95a5a6';
-      default: return '#7f8c8d';
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    return status === 'active' ? '#2ecc71' : '#e74c3c';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <h1>User Management Dashboard</h1>

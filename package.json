@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
-    "type-check": "tsc --noEmit"
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "type-check": "tsc --noEmit",
+    "refactor": "ts-node scripts/refactor-tsx.ts",
+    "refactor:pass2": "ts-node scripts/refactor-tsx-pass2.ts",
+    "fix-lint": "ts-node scripts/fix-lint.ts",
+    "analyze-types": "ts-node scripts/analyze-types.ts"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -21,6 +27,10 @@
     "typescript": "^5.0.0",
     "eslint": "^8.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0"
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "ts-morph": "^21.0.0",
+    "ts-node": "^10.9.0",
+    "prettier": "^3.0.0",
+    "eslint-config-prettier": "^9.0.0"
   }
 }
