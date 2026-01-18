@@ -1,6 +1,6 @@
 # TSX Refactoring with ts-morph
 
-Automated TSX/TypeScript refactoring tools using [ts-morph](https://ts-morph.com/) to extract large code blocks (>150 LOC) into separate, well-typed, lint-compliant files with automatic import management.
+Automated TSX/TypeScript refactoring tools using [ts-morph](https://ts-morph.com/) to extract code blocks into separate, well-typed, lint-compliant files with automatic import management. The intent is to make smaller components practical (e.g., 50/100/150 LOC thresholds) by pushing logic into hooks/utilities and iterating via a feedback loop.
 
 ## Features
 
@@ -8,6 +8,8 @@ Automated TSX/TypeScript refactoring tools using [ts-morph](https://ts-morph.com
 - Extracts types and interfaces to separate `.types.ts` files
 - Extracts utility functions to separate `.utils.ts` files  
 - Automatically generates and fixes imports
+- Supports smaller component targets (e.g., 50/100/150 LOC) by pushing logic into hooks and helpers
+- Designed for iterative runs so each pass can shrink the component further
 
 🔍 **Type Analysis & Auto-Fixing**
 - Infers and adds missing return types
@@ -80,9 +82,19 @@ npm run type-check
 | `npm run lint` | Check for lint issues |
 | `npm run format` | Format all files with Prettier |
 
+### CLI Options (Target Any App)
+
+Use the scripts directly for non-demo components:
+
+```bash
+ts-node scripts/refactor-tsx.ts --file path/to/Dashboard.tsx --min-function-lines 50 --min-variable-lines 25
+ts-node scripts/refactor-tsx-pass2.ts --file path/to/Dashboard.tsx --helper-pattern "^(validate|get|format|handle)"
+ts-node scripts/analyze-types.ts --files path/to/Dashboard.types.ts,path/to/Dashboard.utils.ts,path/to/Dashboard.tsx
+```
+
 ## Refactoring Examples
 
-### Before: Monolithic Component (603 LOC)
+### Before: Monolithic Component
 
 ```tsx
 // UserManagementDashboard.tsx - Everything in one file
@@ -169,7 +181,7 @@ export const formatDate = (dateString: string): string => {
 };
 ```
 
-**UserManagementDashboard.tsx** (532 LOC)
+**UserManagementDashboard.tsx** (size varies)
 ```tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, FormData, ValidationErrors } from './UserManagementDashboard.types';

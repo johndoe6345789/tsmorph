@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import { Project, SourceFile, SyntaxKind, Type, Node } from 'ts-morph';
+import { Project, SourceFile, Node } from 'ts-morph';
 import * as path from 'path';
 
 /**
@@ -13,6 +13,51 @@ import * as path from 'path';
  * 4. Adds return types to functions
  * 5. Makes types more specific where possible
  */
+
+interface CliArgs {
+  files: string[];
+  help?: boolean;
+}
+
+const parseArgs = (args: string[]): CliArgs => {
+  const result: CliArgs = { files: [] };
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (!arg) continue;
+
+    switch (arg) {
+      case '--files': {
+        const next = args[i + 1];
+        if (next) {
+          result.files.push(...next.split(',').map(entry => entry.trim()).filter(Boolean));
+          i += 1;
+        }
+        break;
+      }
+      case '--file': {
+        const next = args[i + 1];
+        if (next) {
+          result.files.push(next);
+          i += 1;
+        }
+        break;
+      }
+      case '--help':
+      case '-h':
+        result.help = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return result;
+};
+
+const printUsage = (): void => {
+  console.log(`\nUsage:\n  ts-node scripts/analyze-types.ts [options]\n\nOptions:\n  --file <path>            Single file to analyze (repeatable)\n  --files <a,b,c>          Comma-separated list of files to analyze\n  --help                   Show this help message\n`);
+};
 
 class TypeAnalyzer {
   private project: Project;
@@ -304,30 +349,19 @@ class TypeAnalyzer {
   /**
    * Process all refactored files
    */
-  processAllFiles(): void {
-    const componentsDir = path.join(__dirname, '..', 'src', 'components');
-    const files = [
-      path.join(componentsDir, 'UserManagementDashboard.types.ts'),
-      path.join(componentsDir, 'UserManagementDashboard.utils.ts'),
-      path.join(componentsDir, 'UserManagementDashboard.tsx'),
-    ];
-
+  processAllFiles(filePaths?: string[]): void {
+    const files = filePaths && filePaths.length > 0 ? filePaths : this.getDefaultFiles();
     files.forEach(file => this.processFile(file));
   }
 
   /**
    * Generate type coverage report
    */
-  generateTypeCoverageReport(): void {
+  generateTypeCoverageReport(filePaths?: string[]): void {
     console.log('\n📈 Type Coverage Report');
     console.log('========================\n');
 
-    const componentsDir = path.join(__dirname, '..', 'src', 'components');
-    const files = [
-      path.join(componentsDir, 'UserManagementDashboard.types.ts'),
-      path.join(componentsDir, 'UserManagementDashboard.utils.ts'),
-      path.join(componentsDir, 'UserManagementDashboard.tsx'),
-    ];
+    const files = filePaths && filePaths.length > 0 ? filePaths : this.getDefaultFiles();
 
     files.forEach(filePath => {
       if (!require('fs').existsSync(filePath)) return;
@@ -368,18 +402,34 @@ class TypeAnalyzer {
       }
     });
   }
+
+  private getDefaultFiles(): string[] {
+    const componentsDir = path.join(__dirname, '..', 'src', 'components');
+    return [
+      path.join(componentsDir, 'UserManagementDashboard.types.ts'),
+      path.join(componentsDir, 'UserManagementDashboard.utils.ts'),
+      path.join(componentsDir, 'UserManagementDashboard.tsx'),
+    ];
+  }
 }
 
 async function main() {
   console.log('🚀 TypeScript Type Analysis and Auto-Fixing Tool\n');
 
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printUsage();
+    return;
+  }
+
   const analyzer = new TypeAnalyzer();
   
   // Process all files
-  analyzer.processAllFiles();
+  const files = args.files.map(file => path.resolve(file));
+  analyzer.processAllFiles(files);
 
   // Generate report
-  analyzer.generateTypeCoverageReport();
+  analyzer.generateTypeCoverageReport(files);
 
   console.log('\n✅ Type analysis complete!');
   console.log('\n💡 Next steps:');

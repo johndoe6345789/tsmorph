@@ -1,6 +1,6 @@
 # tsmorph
 
-Automated TSX/TypeScript refactoring toolkit using [ts-morph](https://ts-morph.com/) to intelligently extract large code blocks (>150 LOC) into separate, well-typed, lint-compliant files with automatic import management.
+Automated TSX/TypeScript refactoring toolkit using [ts-morph](https://ts-morph.com/) to intelligently extract code blocks into separate, well-typed, lint-compliant files with automatic import management. The goal is to support smaller components (e.g., 50/100/150 LOC thresholds) and push more logic into hooks/utilities via a feedback loop.
 
 ## 🚀 Quick Start
 
@@ -19,6 +19,8 @@ npm run type-check        # Verify everything compiles
 ## ✨ Features
 
 - **Automated Code Extraction**: Extracts types, interfaces, and utility functions to separate files
+- **Smaller Component Targets**: Supports tighter LOC targets (e.g., 50/100/150) by encouraging extraction into hooks and utilities
+- **Feedback Loop Friendly**: Re-run the pipeline to keep shrinking components after each extraction pass
 - **Smart Import Management**: Automatically adds, removes, and organizes imports
 - **Type Analysis**: Infers and adds missing return types, parameter types, and fixes `any` types
 - **Lint Auto-Fixing**: Integrates with ESLint and Prettier for consistent code quality
@@ -26,11 +28,11 @@ npm run type-check        # Verify everything compiles
 
 ## 📊 Results
 
-Starting with a monolithic **603-line** TSX component, the tools automatically refactor it into:
+Starting with a monolithic TSX component, the tools automatically refactor it into:
 
 | File | LOC | Purpose |
 |------|-----|---------|
-| `UserManagementDashboard.tsx` | 532 | Main component logic |
+| `UserManagementDashboard.tsx` | Varies | Main component logic |
 | `UserManagementDashboard.types.ts` | 22 | Type definitions & interfaces |
 | `UserManagementDashboard.utils.ts` | 50 | Utility functions with precise types |
 
@@ -61,6 +63,16 @@ See [DOCUMENTATION.md](./DOCUMENTATION.md) for comprehensive guides on:
 | `npm run lint` | Check for lint issues |
 | `npm run format` | Format all files with Prettier |
 
+## 🧰 CLI Usage for Another App
+
+Target any TSX file by passing file paths and thresholds directly to the scripts:
+
+```bash
+ts-node scripts/refactor-tsx.ts --file path/to/Dashboard.tsx --min-function-lines 50 --min-variable-lines 25
+ts-node scripts/refactor-tsx-pass2.ts --file path/to/Dashboard.tsx --helper-pattern "^(validate|get|format|handle)"
+ts-node scripts/analyze-types.ts --files path/to/Dashboard.types.ts,path/to/Dashboard.utils.ts,path/to/Dashboard.tsx
+```
+
 ## 📦 Example Output
 
 ### Type Analysis Report
@@ -86,4 +98,3 @@ See [DOCUMENTATION.md](./DOCUMENTATION.md) for comprehensive guides on:
 ## 📝 License
 
 MIT
-
