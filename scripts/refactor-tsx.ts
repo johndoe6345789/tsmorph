@@ -19,16 +19,107 @@ interface ExtractionCandidate {
   type: 'function' | 'component' | 'interface' | 'type' | 'variable';
 }
 
+interface RefactorOptions {
+  targetFile: string;
+  typesFile: string;
+  utilsFile: string;
+  minFunctionLines: number;
+  minVariableLines: number;
+  utilNamePattern: RegExp;
+}
+
+interface CliArgs {
+  file?: string;
+  types?: string;
+  utils?: string;
+  minFunctionLines?: number;
+  minVariableLines?: number;
+  utilPattern?: string;
+  help?: boolean;
+}
+
+const DEFAULT_MIN_FUNCTION_LINES = 20;
+const DEFAULT_MIN_VARIABLE_LINES = 10;
+const DEFAULT_UTIL_PATTERN = '^(validate|format|get|handle)';
+
+const toModuleSpecifier = (fromFile: string, toFile: string): string => {
+  const relativePath = path
+    .relative(path.dirname(fromFile), toFile)
+    .replace(/\\/g, '/')
+    .replace(/\.(tsx?|jsx?)$/, '');
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
+};
+
+const parseArgs = (args: string[]): CliArgs => {
+  const result: CliArgs = {};
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (!arg) continue;
+
+    switch (arg) {
+      case '--file':
+        result.file = args[i + 1];
+        i += 1;
+        break;
+      case '--types':
+        result.types = args[i + 1];
+        i += 1;
+        break;
+      case '--utils':
+        result.utils = args[i + 1];
+        i += 1;
+        break;
+      case '--min-function-lines':
+        result.minFunctionLines = Number(args[i + 1]);
+        i += 1;
+        break;
+      case '--min-variable-lines':
+        result.minVariableLines = Number(args[i + 1]);
+        i += 1;
+        break;
+      case '--util-pattern':
+        result.utilPattern = args[i + 1];
+        i += 1;
+        break;
+      case '--help':
+      case '-h':
+        result.help = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return result;
+};
+
+const printUsage = (): void => {
+  console.log(`\nUsage:\n  ts-node scripts/refactor-tsx.ts --file <path> [options]\n\nOptions:\n  --types <path>               Output types file path (default: <file>.types.ts)\n  --utils <path>               Output utils file path (default: <file>.utils.ts)\n  --min-function-lines <num>   Minimum lines before extracting functions (default: ${DEFAULT_MIN_FUNCTION_LINES})\n  --min-variable-lines <num>   Minimum lines before extracting variables (default: ${DEFAULT_MIN_VARIABLE_LINES})\n  --util-pattern <regex>       Regex for utility names (default: ${DEFAULT_UTIL_PATTERN})\n  --help                       Show this help message\n`);
+};
+
+const resolveOutputPath = (inputFile: string, suffix: string): string => {
+  if (inputFile.endsWith('.tsx')) {
+    return inputFile.replace(/\.tsx$/, suffix);
+  }
+  if (inputFile.endsWith('.ts')) {
+    return inputFile.replace(/\.ts$/, suffix);
+  }
+  return `${inputFile}${suffix}`;
+};
+
 class TSXRefactorer {
   private project: Project;
   private sourceFile: SourceFile;
+  private options: RefactorOptions;
 
-  constructor(filePath: string) {
+  constructor(options: RefactorOptions) {
     this.project = new Project({
       tsConfigFilePath: path.join(__dirname, '..', 'tsconfig.json'),
     });
     
-    this.sourceFile = this.project.addSourceFileAtPath(filePath);
+    this.sourceFile = this.project.addSourceFileAtPath(options.targetFile);
+    this.options = options;
   }
 
   /**
@@ -44,7 +135,7 @@ class TSXRefactorer {
     const functions = this.sourceFile.getFunctions();
     functions.forEach(func => {
       const lineCount = this.getNodeLineCount(func);
-      if (lineCount > 20) { // Lower threshold for demonstration
+      if (lineCount > this.options.minFunctionLines) {
         candidates.push({
           name: func.getName() || 'anonymous',
           node: func,
@@ -62,7 +153,7 @@ class TSXRefactorer {
         const lineCount = this.getNodeLineCount(decl);
         const name = decl.getName();
         
-        if (lineCount > 10) {
+        if (lineCount > this.options.minVariableLines) {
           candidates.push({
             name,
             node: decl,
@@ -113,7 +204,7 @@ class TSXRefactorer {
 
     console.log('\n🔄 Extracting types to separate file...');
     
-    const typesFilePath = this.sourceFile.getFilePath().replace('.tsx', '.types.ts');
+    const typesFilePath = this.options.typesFile;
     const typesFile = this.project.createSourceFile(typesFilePath, '', { overwrite: true });
 
     // Build the content for the types file
@@ -145,13 +236,11 @@ class TSXRefactorer {
     });
 
     // Add import to original file
-    const relativePath = './UserManagementDashboard.types';
     const typeNames = typeCandidates.map(c => c.name);
-    
-    this.sourceFile.addImportDeclaration({
-      moduleSpecifier: relativePath,
-      namedImports: typeNames,
-    });
+    if (typeNames.length > 0) {
+      const moduleSpecifier = toModuleSpecifier(this.options.targetFile, typesFilePath);
+      this.addOrUpdateNamedImport(moduleSpecifier, typeNames);
+    }
 
     typesFile.saveSync();
     console.log(`  💾 Saved: ${path.basename(typesFilePath)}`);
@@ -162,7 +251,7 @@ class TSXRefactorer {
    */
   extractUtilities(candidates: ExtractionCandidate[]): void {
     const utilCandidates = candidates.filter(c => 
-      c.type === 'variable' && c.name.match(/^(validate|format|get|handle)/)
+      c.type === 'variable' && this.options.utilNamePattern.test(c.name)
     );
 
     if (utilCandidates.length === 0) {
@@ -172,7 +261,7 @@ class TSXRefactorer {
 
     console.log('\n🔄 Extracting utility functions...');
     
-    const utilsFilePath = this.sourceFile.getFilePath().replace('.tsx', '.utils.ts');
+    const utilsFilePath = this.options.utilsFile;
     const utilsFile = this.project.createSourceFile(utilsFilePath, '', { overwrite: true });
 
     const extractedNames: string[] = [];
@@ -199,25 +288,28 @@ class TSXRefactorer {
     });
 
     // Build the complete utils file content
+    const typeNames = this.getExportedTypeNames();
+    const typeImport = typeNames.length > 0
+      ? `import type { ${typeNames.join(', ')} } from '${toModuleSpecifier(utilsFilePath, this.options.typesFile)}';`
+      : null;
+
     const utilsContent = [
       '/**',
       ' * Extracted utility functions',
       ' * Auto-generated by ts-morph refactoring script',
       ' */',
       '',
-      "import type { FormData, ValidationErrors, User } from './UserManagementDashboard.types';",
-      '',
+      ...(typeImport ? [typeImport, ''] : []),
       ...utilStatements,
     ].join('\n');
 
     utilsFile.replaceWithText(utilsContent);
 
     // Add import to original file
-    const relativePath = './UserManagementDashboard.utils';
-    this.sourceFile.addImportDeclaration({
-      moduleSpecifier: relativePath,
-      namedImports: extractedNames,
-    });
+    if (extractedNames.length > 0) {
+      const moduleSpecifier = toModuleSpecifier(this.options.targetFile, utilsFilePath);
+      this.addOrUpdateNamedImport(moduleSpecifier, extractedNames);
+    }
 
     utilsFile.saveSync();
     console.log(`  💾 Saved: ${path.basename(utilsFilePath)}`);
@@ -267,21 +359,69 @@ class TSXRefactorer {
     const end = node.getEndLineNumber();
     return end - start + 1;
   }
+
+  private addOrUpdateNamedImport(moduleSpecifier: string, names: string[]): void {
+    const existingImport = this.sourceFile.getImportDeclaration(moduleSpecifier);
+    if (existingImport) {
+      const existingNames = existingImport.getNamedImports().map(imp => imp.getName());
+      const mergedNames = Array.from(new Set([...existingNames, ...names]));
+      existingImport.remove();
+      this.sourceFile.addImportDeclaration({
+        moduleSpecifier,
+        namedImports: mergedNames,
+      });
+      return;
+    }
+
+    this.sourceFile.addImportDeclaration({
+      moduleSpecifier,
+      namedImports: names,
+    });
+  }
+
+  private getExportedTypeNames(): string[] {
+    const typesFile = this.project.getSourceFile(this.options.typesFile);
+    if (!typesFile) {
+      return [];
+    }
+
+    const interfaces = typesFile.getInterfaces();
+    const typeAliases = typesFile.getTypeAliases();
+
+    return [...interfaces, ...typeAliases]
+      .filter(type => type.isExported())
+      .map(type => type.getName());
+  }
 }
 
 // Main execution
 async function main() {
   console.log('🚀 TSX Refactoring Tool using ts-morph\n');
 
-  const targetFile = path.join(
-    __dirname,
-    '..',
-    'src',
-    'components',
-    'UserManagementDashboard.tsx'
-  );
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printUsage();
+    return;
+  }
 
-  const refactorer = new TSXRefactorer(targetFile);
+  const targetFile = args.file
+    ? path.resolve(args.file)
+    : path.join(__dirname, '..', 'src', 'components', 'UserManagementDashboard.tsx');
+
+  const options: RefactorOptions = {
+    targetFile,
+    typesFile: path.resolve(args.types ?? resolveOutputPath(targetFile, '.types.ts')),
+    utilsFile: path.resolve(args.utils ?? resolveOutputPath(targetFile, '.utils.ts')),
+    minFunctionLines: Number.isFinite(args.minFunctionLines)
+      ? Number(args.minFunctionLines)
+      : DEFAULT_MIN_FUNCTION_LINES,
+    minVariableLines: Number.isFinite(args.minVariableLines)
+      ? Number(args.minVariableLines)
+      : DEFAULT_MIN_VARIABLE_LINES,
+    utilNamePattern: new RegExp(args.utilPattern ?? DEFAULT_UTIL_PATTERN),
+  };
+
+  const refactorer = new TSXRefactorer(options);
   
   // Step 1: Analyze
   const candidates = refactorer.analyzeFile();
